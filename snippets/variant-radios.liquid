@@ -1,0 +1,180 @@
+{%- comment -%}
+  ✅ Color swatch radios for Dawn-style themes
+  - Converts option named Color/Colour into round swatches
+  - Other options (Size etc.) remain normal buttons
+{%- endcomment -%}
+
+{%- liquid
+  assign product_form_id = product_form_id | default: 'product-form-' | append: section.id
+-%}
+
+<variant-radios
+  class="no-js-hidden"
+  data-section="{{ section.id }}"
+  data-url="{{ product.url }}"
+  {% if update_url == false %}
+    data-update-url="false"
+  {% endif %}
+>
+  {% for option in product.options_with_values %}
+  <div class="product-form__input product-form__input--{{ option.name | handle }}">
+    
+    <label class="form__label">
+      {{ option.name }}
+    </label>
+
+    {% if option.name == 'Color' or option.name == 'Colour' %}
+
+      <div class="color-swatch-wrapper">
+        {% for value in option.values %}
+          {% assign swatch_color = value | downcase %}
+
+          <input
+            type="radio"
+            id="option-{{ option.position }}-{{ forloop.index }}"
+            name="options[{{ option.name }}]"
+            value="{{ value | escape }}"
+            {% if option.selected_value == value %}checked{% endif %}
+            class="color-swatch-input"
+          >
+
+          <label
+            for="option-{{ option.position }}-{{ forloop.index }}"
+            class="color-swatch"
+            style="background-color: {{ value | handle }};"
+            title="{{ value }}"
+          >
+          </label>
+
+        {% endfor %}
+      </div>
+
+    {% else %}
+
+      <!-- Normal buttons for Size etc -->
+      <div class="variant-button-wrapper">
+        {% for value in option.values %}
+          <input
+            type="radio"
+            id="option-{{ option.position }}-{{ forloop.index }}"
+            name="options[{{ option.name }}]"
+            value="{{ value | escape }}"
+            {% if option.selected_value == value %}checked{% endif %}
+          >
+          <label for="option-{{ option.position }}-{{ forloop.index }}">
+            {{ value }}
+          </label>
+        {% endfor %}
+      </div>
+
+    {% endif %}
+
+  </div>
+{% endfor %}
+
+  <script type="application/json">
+    {{ product.variants | json }}
+  </script>
+</variant-radios>
+
+<noscript>
+  <div class="product-form__input">
+    <label class="form__label" for="Variants-{{ section.id }}">
+      {{ 'products.product.product_variants' | t }}
+    </label>
+    <div class="select">
+      <select name="id" id="Variants-{{ section.id }}" class="select__select" form="{{ product_form_id }}">
+        {%- for variant in product.variants -%}
+          <option
+            {% if variant == product.selected_or_first_available_variant %}selected="selected"{% endif %}
+            {% if variant.available == false %}disabled{% endif %}
+            value="{{ variant.id }}"
+          >
+            {{ variant.title }}
+            {%- if variant.available == false -%} - {{ 'products.product.sold_out' | t }}{%- endif -%}
+            - {{ variant.price | money }}
+          </option>
+        {%- endfor -%}
+      </select>
+      {{ 'icon-caret.svg' | inline_asset_content }}
+    </div>
+  </div>
+</noscript>
+
+<style>
+  /* ✅ Swatch styles */
+  .product-form__input--swatch .form__label {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+
+  .product-form__input--swatch {
+    display: block;
+  }
+
+  .product-form__input--swatch input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .product-form__input--swatch .swatch {
+    width: 30px;
+    height: 30px;
+    border-radius: 999px;
+    display: inline-block;
+    margin-right: 10px;
+    background: var(--swatch-bg, #ddd);
+    border: 2px solid rgba(0,0,0,0.15);
+    cursor: pointer;
+    vertical-align: middle;
+    position: relative;
+  }
+
+  .product-form__input--swatch input[type="radio"]:checked + .swatch::after {
+    content: "";
+    position: absolute;
+    inset: -4px;
+    border-radius: 999px;
+    border: 2px solid rgba(0,0,0,0.55);
+  }
+
+  /* optional hover */
+  .product-form__input--swatch .swatch:hover {
+    border-color: rgba(0,0,0,0.35);
+  }
+  /* Swatch Wrapper */
+.color-swatch-wrapper {
+  display: flex;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+/* Hide radio input */
+.color-swatch-input {
+  display: none;
+}
+
+/* Swatch circle */
+.color-swatch {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: 0.2s ease;
+}
+
+/* Selected state */
+.color-swatch-input:checked + .color-swatch {
+  border: 2px solid #000;
+  box-shadow: 0 0 0 3px #fff inset;
+}
+
+/* Hover */
+.color-swatch:hover {
+  transform: scale(1.05);
+}
+</style>

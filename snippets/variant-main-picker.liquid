@@ -1,0 +1,632 @@
+{%- doc -%}
+  Renders a default variant picker, used to display the variant picker in the variants block.
+
+  ✅ UPDATED:
+  - Forces Color/Colour option to render as SWATCHES (circles) instead of buttons
+  - Swatch fallback:
+    1) Shopify swatch (product_option_value.swatch) if available
+    2) Variant metafield: variant.metafields.custom.swatch_color (hex like #000000)
+    3) CSS color name from option value (works for Black/Brown/White)
+{%- enddoc -%}
+
+{% assign block_settings = block.settings %}
+
+{% unless product_resource.has_only_default_variant %}
+  {% liquid
+    assign button_background_brightness = section.settings.color_scheme.settings.foreground | color_brightness
+    if button_background_brightness < 105
+      assign strikethrough_color_mix = '#000'
+    else
+      assign strikethrough_color_mix = '#fff'
+    endif
+  %}
+  <variant-picker
+    class="variant-picker spacing-style variant-picker--{{ block_settings.alignment }}"
+    style="--color-strikethrough-mix: {{ strikethrough_color_mix }}; {% render 'spacing-style', settings: block_settings %}"
+    data-section-id="{{ section.id }}"
+    data-product-id="{{ product_resource.id }}"
+    data-block-id="{{ block.id }}"
+    data-product-url="{{ product_resource.url }}"
+    ref="mainVariantPicker"
+    {% if product.id == product_resource.id %}
+      data-template-product-match="true"
+    {% endif %}
+    {{ block.shopify_attributes }}
+    {% if request.visual_preview_mode %}
+      data-shopify-visual-preview
+    {% endif %}
+  >
+    <form class="variant-picker__form">
+      {%- for product_option in product_resource.options_with_values -%}
+        {%- liquid
+          assign swatch_count = product_option.values | map: 'swatch' | compact | size
+          assign variant_style = block_settings.variant_style
+
+          # ✅ FORCE swatches for Color/Colour even if swatch_count is 0
+          assign option_name_down = product_option.name | downcase
+          assign is_color_option = false
+          if option_name_down contains 'color' or option_name_down contains 'colour'
+            assign is_color_option = true
+            assign variant_style = 'swatch'
+          endif
+
+          # Existing logic (keep) - if swatches exist & enabled, use swatch mode
+          if swatch_count > 0 and block_settings.show_swatches
+            if block_settings.variant_style == 'dropdown'
+              assign variant_style = 'swatch_dropdown'
+            else
+              assign variant_style = 'swatch'
+            endif
+          endif
+
+          if variant_style == 'buttons' and settings.variant_button_width == 'equal-width-buttons'
+            assign fieldset_id = section.id | append: '-' | append: product_resource.id | append: '-' | append: product_option.name | handleize
+            assign option_id_attribute = 'data-option-id="' | append: fieldset_id | append: '"'
+            assign longest_value = 0
+          else
+            assign option_id_attribute = ''
+          endif
+        -%}
+
+        {%- if variant_style == 'swatch' or block_settings.variant_style == 'buttons' -%}
+          {%- assign fieldset_index = forloop.index0 -%}
+          <fieldset
+            class="variant-option variant-option--buttons{% if variant_style == 'swatch' %} variant-option--swatches{% else %} variant-option--{{ settings.variant_button_width }}{% endif %}"
+            data-fieldset-index="{{ fieldset_index }}"
+            ref="fieldsets[]"
+            {{ option_id_attribute }}
+          >
+{%- liquid
+  assign opt_name = product_option.name | downcase
+  assign is_size_option = false
+  if opt_name contains 'size'
+    assign is_size_option = true
+  endif
+
+  assign size_guide_file = product_resource.metafields.custom.size_guide.value
+-%}
+
+<legend class="variant-option__legend{% if is_size_option and size_guide_file != blank %} variant-option__legend--with-guide{% endif %}">
+  <span class="variant-option__legend-left">
+    {{ product_option.name | escape }}:
+    {%- if variant_style == 'swatch' -%}
+      <span class="variant-option__swatch-value">{{ product_option.selected_value }}</span>
+    {%- endif -%}
+  </span>
+
+  {%- if is_size_option and size_guide_file != blank -%}
+    <button type="button" class="size-guide-link" data-size-guide-open aria-haspopup="dialog">
+      Size guide
+    </button>
+
+    <div class="size-guide-modal" hidden data-size-guide-modal>
+      <div class="size-guide-modal__backdrop" data-size-guide-close></div>
+
+      <div class="size-guide-modal__panel" role="dialog" aria-modal="true" aria-label="Size guide">
+        <button type="button" class="size-guide-modal__close" data-size-guide-close aria-label="Close">×</button>
+
+        <div class="size-guide-modal__content">
+          <img
+            src="{{ size_guide_file | image_url: width: 1400 }}"
+            alt="Size guide"
+            style="width:100%;height:auto;display:block;"
+            loading="lazy"
+          >
+        </div>
+      </div>
+    </div>
+  {%- endif -%}
+</legend>
+
+            {%- for product_option_value in product_option.values -%}
+              {% if product_option_value.size > longest_value and option_id_attribute != '' %}
+                {% assign longest_value = product_option_value.size %}
+              {% endif %}
+
+              <label
+                class="variant-option__button-label{% if variant_style == 'swatch' %} variant-option__button-label--has-swatch{% endif %}"
+              >
+                <input
+                  type="radio"
+                  name="{{ product_option.name | escape }}-{{ block.id }}-{{ product_resource.id }}"
+                  value="{{ product_option_value | escape }}"
+                  aria-label="{{ product_option_value.name }}"
+                  {% if product_option_value.available == false %}
+                    aria-disabled="true"
+                  {% endif %}
+                  data-previous-checked="false"
+                  data-fieldset-index="{{ fieldset_index }}"
+                  data-input-index="{{ forloop.index0 }}"
+                  data-input-id="{{ product_option.position }}-{{ forloop.index0 }}"
+                  data-option-value-id="{{ product_option_value.id }}"
+                  data-option-available="{{ product_option_value.available }}"
+                  data-connected-product-url="{{ product_option_value.product_url }}"
+                  {% if product_option_value.variant.id %}
+                    data-variant-id="{{ product_option_value.variant.id }}"
+                  {% endif %}
+                  {% if product_option_value.selected %}
+                    data-current-checked="true"
+                    checked
+                  {% else %}
+                    data-current-checked="false"
+                  {% endif %}
+                >
+
+                {% if variant_style == 'swatch' %}
+                  {% liquid
+                    assign featured_media = product_option_value.variant.featured_media
+
+                    if featured_media == blank and product_option_value.product_url
+                      assign featured_media = product_option_value.variant.product.featured_media
+                    endif
+
+                    # ✅ Fallback hex color from metafield (recommended)
+                    assign mf_color = ''
+                    if product_option_value.variant
+                      assign mf_color = product_option_value.variant.metafields.custom.swatch_color | default: ''
+                    endif
+                  %}
+
+                  {%- if product_option_value.swatch != blank -%}
+                    {% render 'swatch',
+                      swatch: product_option_value.swatch,
+                      variant_image: featured_media,
+                      mode: 'unscaled'
+                    %}
+                  {%- else -%}
+                    {%- comment -%}
+                      ✅ Fallback swatch circle:
+                      - uses metafield hex if present
+                      - else uses css color name (Black/Brown/White)
+                    {%- endcomment -%}
+                    <span
+                      class="swatch swatch--fallback"
+                      style="
+                        {%- if mf_color != blank -%}
+                          --swatch-background: {{ mf_color }};
+                        {%- else -%}
+                          --swatch-background: {{ product_option_value | downcase }};
+                        {%- endif -%}
+                      "
+                    ></span>
+                  {%- endif -%}
+                {% else %}
+                  {% if product_option_value.available == true %}
+                    <span class="variant-option__button-label__pill" data-key="variant-option-pill"></span>
+                  {% endif %}
+                  <span class="variant-option__button-label__text" data-key="variant-option-text">
+                    {{- product_option_value | escape -}}
+                  </span>
+                {% endif %}
+
+                {% render 'strikethrough-variant', product_option: product_option_value %}
+              </label>
+            {%- endfor -%}
+
+            {% if option_id_attribute != '' %}
+              {% style %}
+                [data-option-id="{{ fieldset_id }}"] {
+                  --variant-ch: {{ longest_value | times: 0.65 }}em;
+                }
+              {% endstyle %}
+            {% endif %}
+          </fieldset>
+
+        {%- elsif block_settings.variant_style == 'dropdowns' -%}
+          {%
+            # There is an opportunity to build a custom select component that will allow us to style the select element further (animation for dropdown, swatches shown in the dropdown options, etc)
+          %}
+          {% liquid
+            assign property_being_updated = false
+            if settings.variant_swatch_width != settings.variant_swatch_height
+              assign property_being_updated = true
+              assign new_width = settings.variant_swatch_width | times: 1.0 | divided_by: settings.variant_swatch_height | times: 20
+            endif
+          %}
+
+          <div class="variant-option variant-option--dropdowns">
+            <label for="Option-{{ block.id }}-{{ forloop.index0 }}">{{ product_option.name | escape }}</label>
+            <div
+              class="variant-option__select-wrapper"
+              style="
+                {%- if property_being_updated  -%}
+                  --variant-picker-swatch-width: clamp(10px,{{ new_width }}px, 50px);
+                {%- endif -%}
+              "
+            >
+              <select
+                id="Option-{{ block.id }}-{{ forloop.index0 }}"
+                name="options[{{ product_option.name | escape }}]"
+                class="variant-option__select"
+              >
+                {%- for product_option_value in product_option.values -%}
+                  <option
+                    value="{{ product_option_value | escape }}"
+                    data-input-id="{{ product_option.position }}-{{ forloop.index0 }}"
+                    data-option-value-id="{{ product_option_value.id }}"
+                    data-variant-id="{{ product_option_value.variant.id }}"
+                    data-connected-product-url="{{ product_option_value.product_url }}"
+                    {% if product_option_value.selected %}
+                      selected="selected"
+                    {% endif %}
+                  >
+                    {% if product_option_value.available == false %}
+                      {{ product_option_value | escape }} - {{ 'content.unavailable' | t }}
+                    {% else %}
+                      {{ product_option_value | escape }}
+                    {% endif %}
+                  </option>
+                {%- endfor -%}
+              </select>
+              <svg aria-hidden="true" focusable="false" class="icon icon-caret" viewBox="0 0 10 6">
+                {%- render 'icon', icon: 'caret' -%}
+              </svg>
+            </div>
+          </div>
+        {%- endif -%}
+      {%- endfor -%}
+
+      <script type="application/json">
+        {{ product_resource.selected_or_first_available_variant | json }}
+      </script>
+    </form>
+  </variant-picker>
+{% endunless %}
+
+{% stylesheet %}
+  .variant-picker {
+    width: 100%;
+  }
+
+  .variant-picker__form {
+    width: 100%;
+  }
+
+  .variant-picker[data-shopify-visual-preview] {
+    min-width: 300px;
+    padding-inline-start: max(4px, var(--padding-inline-start));
+  }
+
+  .variant-option {
+    --options-border-radius: var(--variant-picker-button-radius);
+    --options-border-width: var(--variant-picker-button-border-width);
+    --variant-option-padding-inline: var(--padding-md);
+  }
+
+  .variant-option + .variant-option {
+    margin-top: var(--padding-lg);
+  }
+
+  .variant-option--swatches {
+    --options-border-radius: var(--variant-picker-swatch-radius);
+    width: 100%;
+  }
+
+  .variant-option--swatches-disabled {
+    pointer-events: none;
+    cursor: not-allowed;
+  }
+
+  .variant-option--swatches > overflow-list {
+    justify-content: var(--product-swatches-alignment);
+
+    @media (max-width: 749px) {
+      justify-content: var(--product-swatches-alignment-mobile);
+    }
+  }
+
+  .variant-option--buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--gap-sm);
+    margin: 0;
+    padding: 0;
+    border: none;
+  }
+
+  .variant-option--buttons legend {
+    padding: 0;
+    margin-block-end: var(--margin-xs);
+  }
+
+  .variant-option__swatch-value {
+    padding-inline-start: var(--padding-xs);
+    color: rgb(var(--color-foreground-rgb) / var(--opacity-70));
+  }
+
+  /* ✅ Fallback swatch styling (only used when Shopify swatch object is missing) */
+  .swatch--fallback {
+    width: var(--variant-picker-swatch-width, 22px);
+    height: var(--variant-picker-swatch-height, 22px);
+    border-radius: var(--variant-picker-swatch-radius, 999px);
+    background: var(--swatch-background);
+    border: 1px solid rgba(0, 0, 0, 0.25);
+    display: inline-block;
+  }
+
+  /* keep the rest of your CSS unchanged ... */
+  /* ✅ Make swatches look like your image (big circles, no radio dot, no text buttons) */
+.variant-option--swatches {
+  gap: 14px; /* spacing between circles */
+}
+
+.variant-option--swatches .variant-option__legend {
+  font-size: 18px;
+  margin-bottom: 10px;
+}
+
+.variant-option--swatches .variant-option__swatch-value {
+  font-weight: 600;
+  color: currentColor;
+}
+
+/* Hide any leftover button UI inside swatch mode */
+.variant-option--swatches .variant-option__button-label__text,
+.variant-option--swatches .variant-option__button-label__pill {
+  display: none !important;
+}
+
+/* Ensure the radio input never shows */
+.variant-option--swatches .variant-option__button-label input {
+  position: absolute !important;
+  opacity: 0 !important;
+  width: 1px !important;
+  height: 1px !important;
+  pointer-events: none !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+}
+
+/* Make circles bigger */
+.variant-option--swatches .swatch,
+.variant-option--swatches .swatch--fallback {
+  width: 44px !important;
+  height: 44px !important;
+  border-radius: 999px !important;
+  border: 2px solid rgba(0,0,0,.25) !important;
+  box-shadow: inset 0 0 0 2px rgba(255,255,255,.7);
+}
+
+/* Selected state: bold outline like your screenshot */
+.variant-option--swatches .variant-option__button-label:has(:checked) .swatch,
+.variant-option--swatches .variant-option__button-label:has(:checked) .swatch--fallback {
+  border-color: rgba(0,0,0,.75) !important;
+  outline: 2px solid rgba(0,0,0,.75) !important;
+  outline-offset: 3px !important;
+}
+/* ✅ SIZE as inline text with underline on selected (like your image) */
+
+/* Only apply to non-swatch fieldsets (your Size will be buttons, Color is swatches) */
+.variant-option--buttons:not(.variant-option--swatches) {
+  gap: 22px !important;         /* space between sizes */
+  align-items: center;
+}
+
+/* Remove button box styling */
+.variant-option--buttons:not(.variant-option--swatches) .variant-option__button-label {
+  background: transparent !important;
+  border: 0 !important;
+  padding: 0 !important;
+  min-height: auto !important;
+  min-width: auto !important;
+  flex: initial !important;
+  border-radius: 0 !important;
+  overflow: visible !important;
+}
+
+/* Hide pill animation */
+.variant-option--buttons:not(.variant-option--swatches) .variant-option__button-label__pill {
+  display: none !important;
+}
+
+/* Text style */
+.variant-option--buttons:not(.variant-option--swatches) .variant-option__button-label__text {
+  font-size: 18px;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+  color: currentColor;
+}
+
+/* Underline only selected */
+.variant-option--buttons:not(.variant-option--swatches) .variant-option__button-label:has(:checked) .variant-option__button-label__text {
+  text-decoration: underline;
+  text-underline-offset: 6px;
+  text-decoration-thickness: 2px;
+}
+
+/* Disabled sizes look muted */
+.variant-option--buttons:not(.variant-option--swatches) .variant-option__button-label:has([data-option-available='false']) .variant-option__button-label__text {
+  opacity: 0.35;
+  text-decoration: none;
+}
+
+/* Focus state for accessibility */
+.variant-option--buttons:not(.variant-option--swatches) .variant-option__button-label:has(:focus-visible) .variant-option__button-label__text {
+  outline: 2px solid currentColor;
+  outline-offset: 4px;
+}
+/* 🔥 COMPLETELY remove radio appearance (Color + Size) */
+.variant-option__button-label input[type="radio"] {
+  position: absolute !important;
+  opacity: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  pointer-events: none !important;
+}
+
+/* ========================= */
+/* SIZE STYLE (text only) */
+/* ========================= */
+
+.variant-option--buttons:not(.variant-option--swatches) {
+  gap: 24px !important;
+}
+
+/* Remove box styling */
+.variant-option--buttons:not(.variant-option--swatches) .variant-option__button-label {
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  min-height: auto !important;
+  min-width: auto !important;
+  flex: initial !important;
+  border-radius: 0 !important;
+}
+
+/* Remove pill animation */
+.variant-option--buttons:not(.variant-option--swatches) .variant-option__button-label__pill {
+  display: none !important;
+}
+
+/* Size text style */
+.variant-option--buttons:not(.variant-option--swatches) .variant-option__button-label__text {
+  font-size: 20px;
+  letter-spacing: 0.02em;
+}
+
+/* Underline only selected */
+.variant-option--buttons:not(.variant-option--swatches)
+.variant-option__button-label:has(:checked)
+.variant-option__button-label__text {
+  text-decoration: underline;
+  text-underline-offset: 6px;
+  text-decoration-thickness: 2px;
+}
+
+/* Disabled size */
+.variant-option--buttons:not(.variant-option--swatches)
+.variant-option__button-label:has([data-option-available="false"])
+.variant-option__button-label__text {
+  opacity: 0.35;
+  text-decoration: none;
+}
+legend.variant-option__legend{font-size:18px;}
+/* ✅ Legend row: "Size" left, "Size guide" right */
+.variant-option__legend {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+}
+
+/* Clickable link styling */
+.size-guide-link {
+  font-size: 14px;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  color: currentColor;
+  white-space: nowrap;
+}
+
+/* ✅ Modal styles */
+.size-guide-modal__backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.45);
+  z-index: 9998;
+}
+
+.size-guide-modal__panel {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(720px, 92vw);
+  max-height: 80vh;
+  overflow: auto;
+  background: #fff;
+  padding: 22px;
+  border-radius: 14px;
+  z-index: 9999;
+}
+
+.size-guide-modal__close {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  font-size: 26px;
+  line-height: 1;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+.variant-option__legend{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  width:100%;
+}
+
+.size-guide-link{
+  font-size:14px;
+  text-decoration:underline;
+  text-underline-offset:4px;
+  background:transparent;
+  border:0;
+  padding:0;
+  cursor:pointer;
+  color: currentColor;
+  white-space:nowrap;
+}
+
+.size-guide-modal__backdrop{
+  position:fixed; inset:0;
+  background:rgba(0,0,0,.45);
+  z-index:9998;
+}
+
+.size-guide-modal__panel{
+  position:fixed;
+  left:50%; top:50%;
+  transform:translate(-50%,-50%);
+  width:min(720px, 92vw);
+  max-height:80vh;
+  overflow:auto;
+  background:#fff;
+  padding:22px;
+  border-radius:14px;
+  z-index:9999;
+}
+
+.size-guide-modal__close{
+  position:absolute;
+  top:8px; right:12px;
+  font-size:26px;
+  line-height:1;
+  background:transparent;
+  border:0;
+  cursor:pointer;
+}
+
+{% endstylesheet %}
+<script>
+  document.addEventListener('click', (e) => {
+    const open = e.target.closest('[data-size-guide-open]');
+    if (open) {
+      const modal = open.parentElement.querySelector('[data-size-guide-modal]');
+      if (modal) modal.hidden = false;
+      return;
+    }
+
+    const close = e.target.closest('[data-size-guide-close]');
+    if (close) {
+      const modal = close.closest('[data-size-guide-modal]');
+      if (modal) modal.hidden = true;
+    }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    document.querySelectorAll('[data-size-guide-modal]:not([hidden])').forEach(m => m.hidden = true);
+  });
+</script>
