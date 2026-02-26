@@ -1,0 +1,232 @@
+{% comment %}
+  Section: Split Image + Content (matches screenshot)
+  - Left: image
+  - Right: background color + heading + title + rich text
+{% endcomment %}
+
+<section
+  class="tmg-split-feature"
+  style="
+    --tmg-bg: {{ section.settings.bg_color }};
+    --tmg-text: {{ section.settings.text_color }};
+    --tmg-max: {{ section.settings.max_width }}px;
+    --tmg-pad-y: {{ section.settings.padding_y }}px;
+    --tmg-pad-x: {{ section.settings.padding_x }}px;
+  "
+>
+  <div class="tmg-split-feature__inner page-width">
+    <div class="tmg-split-feature__grid">
+      <div class="tmg-split-feature__media">
+        {% if section.settings.image != blank %}
+          {{
+            section.settings.image
+            | image_url: width: 2000
+            | image_tag:
+              loading: 'lazy',
+              class: 'tmg-split-feature__img',
+              alt: section.settings.image_alt | default: section.settings.heading | escape
+          }}
+        {% else %}
+          <div class="tmg-split-feature__placeholder">
+            Add an image in the section settings.
+          </div>
+        {% endif %}
+      </div>
+
+      <div class="tmg-split-feature__content">
+        {% if section.settings.heading != blank %}
+          <h2 class="tmg-split-feature__heading">{{ section.settings.heading }}</h2>
+        {% endif %}
+
+        {% if section.settings.title != blank %}
+          <h3 class="tmg-split-feature__title">{{ section.settings.title }}</h3>
+        {% endif %}
+
+        {% if section.settings.text != blank %}
+          <div class="tmg-split-feature__text rte">
+            {{ section.settings.text }}
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</section>
+
+{% style %}
+  .tmg-split-feature {
+    background: transparent;
+  }
+
+  .tmg-split-feature__inner {
+    max-width: var(--tmg-max);
+    margin: 0 auto;
+    padding-top: var(--tmg-pad-y);
+    padding-bottom: var(--tmg-pad-y);
+  }
+
+  .tmg-split-feature__grid {
+    display: grid;
+    grid-template-columns: 1.25fr 1fr;
+    min-height: 520px;
+  }
+
+  .tmg-split-feature__media {
+    background: #000;
+  }
+
+  .tmg-split-feature__img {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+  }
+
+  .tmg-split-feature__placeholder {
+    width: 100%;
+    height: 100%;
+    min-height: 420px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    opacity: 0.8;
+    font-size: 14px;
+    letter-spacing: 0.04em;
+  }
+
+  .tmg-split-feature__content {
+    background: var(--tmg-bg);
+    color: var(--tmg-text);
+    padding: calc(var(--tmg-pad-y) + 12px) var(--tmg-pad-x);
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+  }
+
+  .tmg-split-feature__heading {
+    margin: 0;
+    font-size: 44px;
+    line-height: 1.05;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+
+  .tmg-split-feature__title {
+    margin: 0 0 10px;
+    font-size: 18px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+
+  .tmg-split-feature__text {
+    font-size: 16px;
+    line-height: 1.6;
+    max-width: 560px;
+    opacity: 0.95;
+  }
+
+  .tmg-split-feature__text p { margin: 0 0 14px; }
+  .tmg-split-feature__text p:last-child { margin-bottom: 0; }
+
+  @media (max-width: 989px) {
+    .tmg-split-feature__grid {
+      grid-template-columns: 1fr;
+      min-height: unset;
+    }
+    .tmg-split-feature__media {
+      height: 420px;
+    }
+    .tmg-split-feature__content {
+      padding: 28px 20px;
+      gap: 18px;
+    }
+    .tmg-split-feature__heading {
+      font-size: 34px;
+    }
+  }
+{% endstyle %}
+
+{% schema %}
+{
+  "name": "Split image + text",
+  "settings": [
+    {
+      "type": "image_picker",
+      "id": "image",
+      "label": "Left image"
+    },
+    {
+      "type": "text",
+      "id": "image_alt",
+      "label": "Image alt text"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "OUR DRESSES ARE BUILT DIFFERENT"
+    },
+    {
+      "type": "text",
+      "id": "title",
+      "label": "Title",
+      "default": "MADE FROM 100% HIGH QUALITY FRENCH LINEN"
+    },
+    {
+      "type": "richtext",
+      "id": "text",
+      "label": "Text",
+      "default": "<p>All our dresses are made slowly and mindfully from the highest quality French linen.</p>"
+    },
+    {
+      "type": "color",
+      "id": "bg_color",
+      "label": "Right background color",
+      "default": "#C9CDE0"
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "Text color",
+      "default": "#1b1b1b"
+    },
+    {
+      "type": "range",
+      "id": "max_width",
+      "label": "Max width",
+      "min": 900,
+      "max": 1600,
+      "step": 10,
+      "default": 1400,
+      "unit": "px"
+    },
+    {
+      "type": "range",
+      "id": "padding_y",
+      "label": "Vertical padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "default": 0,
+      "unit": "px"
+    },
+    {
+      "type": "range",
+      "id": "padding_x",
+      "label": "Right content side padding",
+      "min": 16,
+      "max": 120,
+      "step": 4,
+      "default": 56,
+      "unit": "px"
+    }
+  ],
+  "presets": [
+    {
+      "name": "Split image + text"
+    }
+  ]
+}
+{% endschema %}
